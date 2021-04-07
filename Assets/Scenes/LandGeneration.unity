@@ -525,7 +525,7 @@ MonoBehaviour:
     height: 0.85
     color: {r: 0.9529412, g: 0.64705884, b: 0.41568628, a: 0}
   - name: 
-    height: 2
+    height: 10
     color: {r: 0.48235294, g: 0.2509804, b: 0.2, a: 0}
   persistanceSlider: {fileID: 1156698890}
   lacunaritySlider: {fileID: 2068694421}

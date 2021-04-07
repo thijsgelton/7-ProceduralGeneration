@@ -86,6 +86,7 @@ public class Landscape : MonoBehaviour
         var colors = new Color[numberOfVertices];
         var triangles = new int[resolution * resolution * 6];
         var vertices = new Vector3[numberOfVertices];
+        _maxheight = 0f;
 
         // Then, loop over the vertices and populate the data structures:
         for(int i = 0, z = 0; z <= resolution; z++)
