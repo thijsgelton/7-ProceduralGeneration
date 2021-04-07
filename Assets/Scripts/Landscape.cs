@@ -11,6 +11,7 @@ public class Landscape : MonoBehaviour
     [SerializeField] private TerrainType[] terrainTypes;
 
     public Slider persistanceSlider, lacunaritySlider, octavesSlider, shiftXSlider, shiftYSlider, scaleSlider;
+    public Toggle toggleFilter;
     
     [Range(0, 1)] [SerializeField] private float persistance = 0.5f;
     [Range(1, 3)] [SerializeField] private float lacunarity = 2f;
@@ -31,8 +32,7 @@ public class Landscape : MonoBehaviour
         (GetComponent<MeshFilter>().mesh = _mesh = new Mesh {name = name}).MarkDynamic();
         persistanceSlider.onValueChanged.AddListener(delegate(float newValue)
         {
-            persistance = newValue;  
-            GenerateLandscape();  
+            persistance = newValue; GenerateLandscape();  
         });
         lacunaritySlider.onValueChanged.AddListener(delegate(float newValue)
         {
@@ -59,6 +59,11 @@ public class Landscape : MonoBehaviour
             scale = newValue;
             GenerateLandscape();
         });
+        toggleFilter.onValueChanged.AddListener(delegate(bool isOn)
+        {
+            GenerateLandscape();
+        });
+        
     }
 
 
@@ -87,8 +92,8 @@ public class Landscape : MonoBehaviour
         {
             for (var x = 0; x <= resolution; x++)
             {
-                var coords = new Vector2((float) x / (resolution - 1),  (float) z / (resolution - 1));
-                var elevation = FractalNoise(coords, persistance, lacunarity, octaves, scale, shift, state);
+                var coords = new Vector2((float) x / resolution,  (float) z / resolution);
+                var elevation =  1.414214f * FractalNoise(coords, persistance, lacunarity, octaves, scale, shift, state);
                 foreach (var terrainType in terrainTypes)
                 {
                     if (!(elevation <= terrainType.height)) continue;
@@ -118,8 +123,10 @@ public class Landscape : MonoBehaviour
                 triangles[tris + 4] = vert + resolution + 1;   
                 triangles[tris + 5] = vert + resolution + 2;
 
-                var vertex = vertices[vert];
-                vertices[vert].y = ButtesFilter(vertex.x, vertex.z, vertex.y);
+                if (toggleFilter.isOn) {
+                    var vertex = vertices[vert];
+                    vertices[vert].y = ButtesFilter(vertex.y);
+                }
                 
                 vert++;
                 tris += 6;
@@ -141,14 +148,6 @@ public class Landscape : MonoBehaviour
     private static float FractalNoise(Vector2 coords, float persistance, float lacunarity, int octaves, float scale,
         Vector2 shift, int state)
     {
-        /*
-         * Tip:
-         * Here, you can use the built-in Perlin noise implementation for each octave:
-         * Mathf.PerlinNoise(x, y); such that:
-         * x = coords.x * frequency.x * scale + some random number (seeded by state at the beginning) + shift.x; and
-         * y = coords.y * frequency.y * scale + some random number (seeded by state at the beginning) + shift.y; and
-         */
-        
         var fractalNoise = 0f;
         Random.InitState(state);
         for (var i = 0; i < octaves; i++)
@@ -163,7 +162,7 @@ public class Landscape : MonoBehaviour
         return fractalNoise;
     }
 
-    private float ButtesFilter(float x, float y, float _height)
+    private float ButtesFilter(float _height)
     {
         var halfMax = _maxheight / 2;
         var scaledHeight = sharpness * ((_height - halfMax) / halfMax);
@@ -171,7 +170,7 @@ public class Landscape : MonoBehaviour
         return _maxheight * (1 + logistic / 2);
     }
     
-    private float WaterFilter(float x, float y, float _height)
+    private float WaterFilter(float _height)
     {
         var waterHeight = terrainTypes[0].height * height;
         return _height <= waterHeight ? waterHeight: _height;
