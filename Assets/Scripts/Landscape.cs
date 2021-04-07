@@ -8,8 +8,7 @@ public class Landscape : MonoBehaviour
 {
     private bool _isDirty;
     private Mesh _mesh;
-    private Vector3[] _vertices;
-    [SerializeField] private TerrainType[] _terrainTypes;
+    [SerializeField] private TerrainType[] terrainTypes;
 
     public Slider persistanceSlider, lacunaritySlider, octavesSlider, shiftXSlider, shiftYSlider, scaleSlider;
     
@@ -23,9 +22,10 @@ public class Landscape : MonoBehaviour
     [SerializeField] private int resolution = 256;
     [SerializeField] private float length = 256f;
     [SerializeField] private float height = 50f;
-
-    private static float MAXHEIGHT = 0f;
+    [SerializeField] private float sharpness;
     
+    private static float _maxheight = 0f;
+
     private void Awake()
     {
         (GetComponent<MeshFilter>().mesh = _mesh = new Mesh {name = name}).MarkDynamic();
@@ -79,8 +79,8 @@ public class Landscape : MonoBehaviour
         // First, initialize the data structures:
         var numberOfVertices = (resolution + 1) * (resolution + 1);
         var colors = new Color[numberOfVertices];
-        var triangles = new int[numberOfVertices * 3 * 2];
-        _vertices = new Vector3[numberOfVertices];
+        var triangles = new int[resolution * resolution * 6];
+        var vertices = new Vector3[numberOfVertices];
 
         // Then, loop over the vertices and populate the data structures:
         for(int i = 0, z = 0; z <= resolution; z++)
@@ -89,7 +89,7 @@ public class Landscape : MonoBehaviour
             {
                 var coords = new Vector2((float) x / (resolution - 1),  (float) z / (resolution - 1));
                 var elevation = FractalNoise(coords, persistance, lacunarity, octaves, scale, shift, state);
-                foreach (var terrainType in _terrainTypes)
+                foreach (var terrainType in terrainTypes)
                 {
                     if (!(elevation <= terrainType.height)) continue;
                     colors[i] = terrainType.color;
@@ -97,16 +97,16 @@ public class Landscape : MonoBehaviour
                 }
 
                 var fractalHeight = height * elevation;
-                _vertices[i] = new Vector3(length * coords.x,  fractalHeight, length * coords.y);
-                if (fractalHeight > MAXHEIGHT)
+                vertices[i] = new Vector3(length * coords.x,  fractalHeight, length * coords.y);
+                if (fractalHeight > _maxheight)
                 {
-                    MAXHEIGHT = fractalHeight;
+                    _maxheight = fractalHeight;
                 }
                 i++;
             }
         }
         
-        
+        // Then looping over the vertices and producing the triangles 
         var tris = 0;
         var vert = 0;
         for (var z = 0; z < resolution; z++) {
@@ -118,8 +118,8 @@ public class Landscape : MonoBehaviour
                 triangles[tris + 4] = vert + resolution + 1;   
                 triangles[tris + 5] = vert + resolution + 2;
 
-                var vertex = _vertices[vert];
-                _vertices[vert].y = LogisticFilter(vertex.x, vertex.z, vertex.y);
+                var vertex = vertices[vert];
+                vertices[vert].y = ButtesFilter(vertex.x, vertex.z, vertex.y);
                 
                 vert++;
                 tris += 6;
@@ -132,7 +132,7 @@ public class Landscape : MonoBehaviour
 
         // Assign the data structures to the mesh
         _mesh.Clear();
-        _mesh.SetVertices(_vertices);
+        _mesh.SetVertices(vertices);
         _mesh.SetColors(colors);
         _mesh.SetTriangles(triangles, 0);
         _mesh.RecalculateNormals();
@@ -163,14 +163,17 @@ public class Landscape : MonoBehaviour
         return fractalNoise;
     }
 
-    public void UpdatePersistance(Slider newVal)
+    private float ButtesFilter(float x, float y, float _height)
     {
-        persistance = newVal.value;
+        var halfMax = _maxheight / 2;
+        var scaledHeight = sharpness * ((_height - halfMax) / halfMax);
+        var logistic = 1 / (1 + Mathf.Exp(scaledHeight));
+        return _maxheight * (1 + logistic / 2);
     }
     
-    private float LogisticFilter(float x, float y, float _height)
+    private float WaterFilter(float x, float y, float _height)
     {
-        var waterHeight = _terrainTypes[0].height * height;
+        var waterHeight = terrainTypes[0].height * height;
         return _height <= waterHeight ? waterHeight: _height;
     } 
 
